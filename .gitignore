@@ -2,3 +2,4 @@ simpleca
 root/
 intermediates/
 clients/
+state.json

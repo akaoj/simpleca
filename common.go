@@ -21,20 +21,8 @@ func getPubKey(priv interface{}) interface{} {
 	}
 }
 
-func getPath(keyClass, keyName, keyType string) string {
-	var extension string
+func getPath(keyClass, keyName string) string {
 	var path string
-
-	switch keyType {
-	case "priv":
-		extension = "key"
-	case "pub":
-		extension = "pub"
-	case "cert":
-		extension = "crt"
-	default:
-		panic("the key type " + keyType + " is not valid")
-	}
 
 	switch keyClass {
 	case "root":
@@ -47,5 +35,17 @@ func getPath(keyClass, keyName, keyType string) string {
 		panic("the key class " + keyClass + " is not valid")
 	}
 
-	return path + "/" + keyName + "." + extension
+	return path + "/" + keyName
+}
+
+func getPathPriv(keyClass, keyName string) string {
+	return getPath(keyClass, keyName) + ".key"
+}
+
+func getPathPub(keyClass, keyName string) string {
+	return getPath(keyClass, keyName) + ".pub"
+}
+
+func getPathCert(keyClass, keyName string) string {
+	return getPath(keyClass, keyName) + ".crt"
 }

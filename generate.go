@@ -1,30 +1,31 @@
 package main
 
 import (
-	"errors"
-	"flag"
-	"os"
-	"strconv"
-
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
+	"flag"
+	"os"
+	"strconv"
+	"time"
 )
 
 
-func generate(args []string) error {
+func generate(state *State, args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing class\n\n" + getHelpGenerate())
 	}
 
 	var class string = args[0]
 	var keySize int
-	var keySizeStr string  // only used for printing
 	var keyType string
 	var keyName string  // this will make it possible to have multiple keys with different names
+
+	var err error
 
 	commands := flag.NewFlagSet("generate", flag.ExitOnError)
 
@@ -34,8 +35,28 @@ func generate(args []string) error {
 
 	commands.Parse(args[1:])
 
-	keySizeStr = strconv.Itoa(keySize)
+	// Generate keys
+	var privateHeader string
+	var publicHeader string
 
+	var privKeyMarshalled, pubKeyMarshalled []byte
+
+	switch keyType {
+	case "rsa":
+		privKeyMarshalled, pubKeyMarshalled, privateHeader, publicHeader, err = generateKey(keyType, keySize)
+		if err != nil {
+			return err
+		}
+	case "ecdsa":
+		privKeyMarshalled, pubKeyMarshalled, privateHeader, publicHeader, err = generateKey(keyType, keySize)
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.New("key type " + keyType + " is not available")
+	}
+
+	// Save them
 	var path string
 
 	switch class {
@@ -56,8 +77,8 @@ func generate(args []string) error {
 		return errors.New("can't generate a " + class)
 	}
 
-	// Generate the path if needed
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	// Generate the folder if needed
+	if _, err = os.Stat(path); os.IsNotExist(err) {
 		err = os.Mkdir(path, 0700)
 		if err != nil {
 			return err
@@ -65,45 +86,59 @@ func generate(args []string) error {
 	}
 
 	// Prepare public and private key files
-	privKeyFile, err := os.OpenFile(getPath(class, keyName, "priv"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	privKeyFile, err := os.OpenFile(getPathPriv(class, keyName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
 	defer privKeyFile.Close()
 
-	pubKeyFile, err := os.OpenFile(getPath(class, keyName, "pub"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	pubKeyFile, err := os.OpenFile(getPathPub(class, keyName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
 	defer pubKeyFile.Close()
 
 
-	var privateHeader string
-	var publicHeader string
+	// Write keys
+	pem.Encode(privKeyFile, &pem.Block{Type: privateHeader, Bytes: privKeyMarshalled})
+	pem.Encode(pubKeyFile, &pem.Block{Type: publicHeader, Bytes: pubKeyMarshalled})
 
-	var privKeyMarshalled, pubKeyMarshalled []byte
+	// Update State
+	(*state).set(class, keyName, Element{
+		getPath(class, keyName),
+		keyType,
+		keySize,
+		time.Now(),
+		time.Now(),
+	})
+
+	return nil
+}
+
+
+func generateKey(keyType string, keySize int) (privKeyMarshalled, pubKeyMarshalled []byte, privHeader, pubHeader string, err error) {
+	var keySizeStr string = strconv.Itoa(keySize)
 
 	switch keyType {
 	case "rsa":
 		if keySize != 1024 && keySize != 2048 && keySize != 4096 {
-			return errors.New(keySizeStr + " bits is not a valid size for a RSA key")
+			return []byte{}, []byte{}, "", "", errors.New(keySizeStr + " bits is not a valid size for a RSA key")
 		}
 
 		// Generate private and public keys
 		privateKey, err := rsa.GenerateKey(rand.Reader, keySize)
 		if err != nil {
-			return err
+			return []byte{}, []byte{}, "", "", err
 		}
 		publicKey := &privateKey.PublicKey
 
 		privKeyMarshalled = x509.MarshalPKCS1PrivateKey(privateKey)
 		pubKeyMarshalled, err = x509.MarshalPKIXPublicKey(publicKey)
 		if err != nil {
-			return err
+			return []byte{}, []byte{}, "", "", err
 		}
 
-		privateHeader = "RSA PRIVATE KEY"
-		publicHeader = "RSA PUBLIC KEY"
+		return privKeyMarshalled, pubKeyMarshalled, "RSA PRIVATE KEY", "RSA PUBLIC KEY", nil
 	case "ecdsa":
 		var curve elliptic.Curve
 
@@ -117,40 +152,28 @@ func generate(args []string) error {
 		case 521:
 			curve = elliptic.P521()
 		default:
-			return errors.New(keySizeStr + " bits keys size are not available")
+			return []byte{}, []byte{}, "", "", errors.New(keySizeStr + " bits keys size are not available")
 		}
 
 		privateKey, err := ecdsa.GenerateKey(curve, rand.Reader)
 		if err != nil {
-			return err
+			return []byte{}, []byte{}, "", "", err
 		}
 		publicKey := &privateKey.PublicKey
 
 		privKeyMarshalled, err = x509.MarshalECPrivateKey(privateKey)
 		if err != nil {
-			return err
+			return []byte{}, []byte{}, "", "", err
 		}
 		pubKeyMarshalled, err = x509.MarshalPKIXPublicKey(publicKey)
 		if err != nil {
-			return err
+			return []byte{}, []byte{}, "", "", err
 		}
 
-		privateHeader = "PRIVATE EC KEY"
-		publicHeader = "PUBLIC EC KEY"
-	default:
-		return errors.New("key type " + keyType + " is not available")
+		return privKeyMarshalled, pubKeyMarshalled, "PRIVATE EC KEY", "PUBLIC EC KEY", nil
 	}
 
-	// Write keys
-	pem.Encode(privKeyFile, &pem.Block{Type: privateHeader, Bytes: privKeyMarshalled})
-	pem.Encode(pubKeyFile, &pem.Block{Type: publicHeader, Bytes: pubKeyMarshalled})
-
-	return nil
-}
-
-
-func generateKey(keyType string, keySize int) (key string, err error) {
-	return key, nil
+	return []byte{}, []byte{}, "", "", nil
 }
 
 

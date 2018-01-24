@@ -14,7 +14,7 @@ import (
 )
 
 
-func sign(args []string) error {
+func sign(state *State, args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing class\n\n" + getHelpSign())
 	}
@@ -49,8 +49,8 @@ func sign(args []string) error {
 		return errors.New("can't sign a " + class)
 	}
 
-	var privKeyPath string = getPath(class, keyName, "priv")
-	var pubKeyPath string = getPath(class, keyName, "pub")
+	var privKeyPath string = getPathPriv(class, keyName)
+	var pubKeyPath string = getPathPub(class, keyName)
 
 	if _, err = os.Stat(privKeyPath); os.IsNotExist(err) {
 		return errors.New("the private key " + keyName + " does not exist")
@@ -68,8 +68,8 @@ func sign(args []string) error {
 
 	var privKeyData, pubKeyData interface{}
 
-	// TODO: find a way to know dynamically
-	var keyType string = "rsa"
+	var keyMemory Element = (*state).get(class, keyName)
+	var keyType string = keyMemory.Type
 
 	if keyType == "rsa" {
 		privKeyData, err = x509.ParsePKCS1PrivateKey(privKeyPem.Bytes)
@@ -88,7 +88,7 @@ func sign(args []string) error {
 	// Get public key from private
 	pubKeyData = getPubKey(privKeyData)
 
-	certFile, err := os.OpenFile(getPath(class, keyName, "cert"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	certFile, err := os.OpenFile(keyMemory.Path + ".crt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}

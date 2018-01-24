@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 )
 
 
@@ -25,11 +26,19 @@ func run() (string, error) {
 		return "", errors.New("no action given\n\n" + getHelp())
 	}
 
+	var state State
+	var err error
+
+	state, err = loadState()
+	if err != nil {
+		return "", err
+	}
+
 	var action string = os.Args[1]
 
 	switch action {
 	case "generate":
-		err := generate(os.Args[2:])
+		err := generate(&state, os.Args[2:])
 		if err != nil {
 			return "", err
 		}
@@ -40,7 +49,7 @@ func run() (string, error) {
 	case "show":
 		return "", errors.New("the \"list\" action is not yet implemented")
 	case "sign":
-		err := sign(os.Args[2:])
+		err := sign(&state, os.Args[2:])
 		if err != nil {
 			return "", err
 		}
@@ -48,6 +57,13 @@ func run() (string, error) {
 		return "simpleca v." + VERSION + "\n", nil
 	default:
 		return "", errors.New("the action \"" + action + "\" does not exist\n\n" + getHelp())
+	}
+
+	state.LastModificationDate = time.Now()
+
+	err = saveState(state)
+	if err != nil {
+		return "", err
 	}
 
 	return "", nil
