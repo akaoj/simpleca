@@ -3,3 +3,4 @@ root/
 intermediates/
 clients/
 state.json
+configuration.json

@@ -20,47 +20,63 @@ type Element struct {
 	Size int
 	CreatedOn time.Time
 	ValidUntil time.Time
+	SerialNumber string
 }
 
 type State struct {
-	Root map[string]Element
-	Intermediates map[string]Element
-	Clients map[string]Element
+	Root map[string]*Element
+	Intermediates map[string]*Element
+	Clients map[string]*Element
 	LastModificationDate time.Time
 }
 
 
-func (s *State) set(class, name string, value Element) {
+func (s *State) set(class, name string, value *Element) {
 	switch class {
 	case "root":
 		if s.Root == nil {
-			s.Root = make(map[string]Element)
+			s.Root = make(map[string]*Element)
 		}
 		s.Root[name] = value
 	case "intermediate":
 		if s.Intermediates == nil {
-			s.Intermediates = make(map[string]Element)
+			s.Intermediates = make(map[string]*Element)
 		}
 		s.Intermediates[name] = value
 	case "client":
 		if s.Clients == nil {
-			s.Clients = make(map[string]Element)
+			s.Clients = make(map[string]*Element)
 		}
 		s.Clients[name] = value
 	}
 }
 
-func (s *State) get(class, name string) Element {
+func (s *State) get(class, name string) (*Element, bool) {
+	var el *Element
+	var ok bool
+
 	switch class {
 	case "root":
-		return s.Root[name]
+		el, ok = s.Root[name]
+		if !ok {
+			return &Element{}, false
+		}
+		return el, true
 	case "intermediate":
-		return s.Intermediates[name]
+		el, ok = s.Intermediates[name]
+		if !ok {
+			return &Element{}, false
+		}
+		return el, true
 	case "client":
-		return s.Clients[name]
+		el, ok = s.Clients[name]
+		if !ok {
+			return &Element{}, false
+		}
+		return el, true
 	}
 
-	return Element{}
+	return &Element{}, false
 }
 
 

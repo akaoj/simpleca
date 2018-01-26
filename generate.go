@@ -8,32 +8,18 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"flag"
 	"os"
 	"strconv"
 	"time"
 )
 
 
-func generate(state *State, args []string) error {
-	if len(args) < 1 {
-		return errors.New("missing class\n\n" + getHelpGenerate())
+func generate(state *State, conf Conf, class string, keySize int, keyType, keyName string) error {
+	if keyType == "" {
+		keyType = "ecdsa"
 	}
 
-	var class string = args[0]
-	var keySize int
-	var keyType string
-	var keyName string  // this will make it possible to have multiple keys with different names
-
 	var err error
-
-	commands := flag.NewFlagSet("generate", flag.ExitOnError)
-
-	commands.StringVar(&keyType, "type", "ecdsa", "")
-	commands.IntVar(&keySize, "size", 256, "")
-	commands.StringVar(&keyName, "name", "", "")
-
-	commands.Parse(args[1:])
 
 	// Generate keys
 	var privateHeader string
@@ -43,11 +29,19 @@ func generate(state *State, args []string) error {
 
 	switch keyType {
 	case "rsa":
+		if keySize == 0 {
+			keySize = 2048
+		}
+
 		privKeyMarshalled, pubKeyMarshalled, privateHeader, publicHeader, err = generateKey(keyType, keySize)
 		if err != nil {
 			return err
 		}
 	case "ecdsa":
+		if keySize == 0 {
+			keySize = 384
+		}
+
 		privKeyMarshalled, pubKeyMarshalled, privateHeader, publicHeader, err = generateKey(keyType, keySize)
 		if err != nil {
 			return err
@@ -104,12 +98,13 @@ func generate(state *State, args []string) error {
 	pem.Encode(pubKeyFile, &pem.Block{Type: publicHeader, Bytes: pubKeyMarshalled})
 
 	// Update State
-	(*state).set(class, keyName, Element{
+	(*state).set(class, keyName, &Element{
 		getPath(class, keyName),
 		keyType,
 		keySize,
 		time.Now(),
 		time.Now(),
+		"",
 	})
 
 	return nil
@@ -170,7 +165,7 @@ func generateKey(keyType string, keySize int) (privKeyMarshalled, pubKeyMarshall
 			return []byte{}, []byte{}, "", "", err
 		}
 
-		return privKeyMarshalled, pubKeyMarshalled, "PRIVATE EC KEY", "PUBLIC EC KEY", nil
+		return privKeyMarshalled, pubKeyMarshalled, "EC PRIVATE KEY", "EC PUBLIC KEY", nil
 	}
 
 	return []byte{}, []byte{}, "", "", nil

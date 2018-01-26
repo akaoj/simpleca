@@ -2,13 +2,14 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"time"
 )
 
 
-const VERSION string = "0.1"
+const VERSION string = "0.2"
 
 
 func main() {
@@ -27,9 +28,15 @@ func run() (string, error) {
 	}
 
 	var state State
+	var conf Conf
 	var err error
 
 	state, err = loadState()
+	if err != nil {
+		return "", err
+	}
+
+	conf, err = getConfig()
 	if err != nil {
 		return "", err
 	}
@@ -38,7 +45,24 @@ func run() (string, error) {
 
 	switch action {
 	case "generate":
-		err := generate(&state, os.Args[2:])
+		if len(os.Args[2:]) < 1 {
+			return "", errors.New("missing class\n\n" + getHelpGenerate())
+		}
+
+		var class string = os.Args[2]
+		var keySize int
+		var keyType string
+		var keyName string
+
+		commands := flag.NewFlagSet("generate", flag.ExitOnError)
+
+		commands.StringVar(&keyType, "type", "", "")
+		commands.IntVar(&keySize, "size", 0, "")
+		commands.StringVar(&keyName, "name", "", "")
+
+		commands.Parse(os.Args[3:])
+
+		err := generate(&state, conf, class, keySize, keyType, keyName)
 		if err != nil {
 			return "", err
 		}
@@ -49,7 +73,22 @@ func run() (string, error) {
 	case "show":
 		return "", errors.New("the \"list\" action is not yet implemented")
 	case "sign":
-		err := sign(&state, os.Args[2:])
+		if len(os.Args[2:]) < 1 {
+			return "", errors.New("missing class\n\n" + getHelpSign())
+		}
+
+		var class string = os.Args[2]
+		var keyName string
+		var with string
+
+		commands := flag.NewFlagSet("sign", flag.ExitOnError)
+
+		commands.StringVar(&keyName, "name", "", "")
+		commands.StringVar(&with, "with", "", "")
+
+		commands.Parse(os.Args[3:])
+
+		err := sign(&state, conf, class, keyName, with)
 		if err != nil {
 			return "", err
 		}
