@@ -98,7 +98,11 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 
 	if with == "" {
 		// Self-signed certificate
-		certStruct = getCertForCA(serial, conf.CertificateDuration, conf.Organization, conf.Country, conf.Locality)
+		if class == "client" {
+			certStruct = getCertForClient(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
+		} else {
+			certStruct = getCertForCA(serial, conf.CertificateDuration, conf.Organization, conf.Country, conf.Locality)
+		}
 
 		cert, err = x509.CreateCertificate(rand.Reader, certStruct, certStruct, pubKey, privKey)
 		if err != nil {
