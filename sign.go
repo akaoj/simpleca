@@ -153,6 +153,18 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 		if err != nil {
 			return err
 		}
+
+		// If this is a client key, create the full chain too
+		if class == "client" {
+			fullchainCertFile, err := os.OpenFile((*keyMemory).Path + ".fullchain.crt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+			if err != nil {
+				return err
+			}
+			defer fullchainCertFile.Close()
+
+			pem.Encode(fullchainCertFile, &pem.Block{Type: "CERTIFICATE", Bytes: cert})
+			pem.Encode(fullchainCertFile, &pem.Block{Type: "CERTIFICATE", Bytes: withCertificatePem.Bytes})
+		}
 	}
 
 	pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: cert})
