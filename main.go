@@ -92,6 +92,8 @@ func run() (string, error) {
 		if err != nil {
 			return "", err
 		}
+	case "rm":
+		return "", errors.New("the \"rm\" action is not yet implemented")
 	case "version":
 		return "simpleca v." + VERSION + "\n", nil
 	default:

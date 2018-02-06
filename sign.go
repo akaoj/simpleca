@@ -6,7 +6,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
-	"io/ioutil"
+	"fmt"
 	"math/big"
 	"os"
 	"time"
@@ -33,63 +33,25 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 		return errors.New("can't sign a " + class)
 	}
 
-	var privKeyPath string = getPathPriv(class, keyName)
-	var pubKeyPath string = getPathPub(class, keyName)
-
-	if _, err = os.Stat(privKeyPath); os.IsNotExist(err) {
-		return errors.New("the private key " + keyName + " does not exist")
-	}
-	if _, err = os.Stat(pubKeyPath); os.IsNotExist(err) {
-		return errors.New("the public key " + keyName + " does not exist")
-	}
-
-	// Read file, decode it as PEM and load it
-	privKeyBinary, err := ioutil.ReadFile(privKeyPath)
-	if err != nil {
-		return err
-	}
-	privKeyPem, _ := pem.Decode(privKeyBinary)
-
 	var privKey, pubKey interface{}
 
-	var keyMemory *Element
+	var keyInState *Element
 	var ok bool
 
-	keyMemory, ok = (*state).get(class, keyName)
+	keyInState, ok = (*state).get(class, keyName)
 	if !ok {
 		return errors.New("key " + keyName + " is not known")
 	}
 
-
-	var keyType string = (*keyMemory).Type
-
-	if keyType == "rsa" {
-		privKey, err = x509.ParsePKCS1PrivateKey(privKeyPem.Bytes)
-		if err != nil {
-			return err
-		}
-	} else if keyType == "ecdsa" {
-		privKey, err = x509.ParseECPrivateKey(privKeyPem.Bytes)
-		if err != nil {
-			return err
-		}
-	} else {
-		return errors.New("key type " + keyType + " is not implemented")
-	}
-
-	// Get public key from private
-	pubKey = getPubKey(privKey)
-
-	certFile, err := os.OpenFile((*keyMemory).Path + ".crt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return err
-	}
-	defer certFile.Close()
+	privKey, pubKey, err = loadPrivKey((*keyInState).Type, (*keyInState).Path)
 
 	var cert []byte
 	var certStruct *x509.Certificate
 
 	var serial *big.Int
+
+	// If we are signing a client key, this will tell the user about the fullchain file
+	var additionalMessage string
 
 	serial, err = rand.Int(rand.Reader, (&big.Int{}).Exp(big.NewInt(2), big.NewInt(159), nil))
 	if err != nil {
@@ -122,23 +84,16 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 		}
 
 		var withPrivKey interface{}
-		var withCertificate *x509.Certificate
+		var withCertificatePem *pem.Block
+		var withCertificateX509 *x509.Certificate
 
 		// Load the keys
-		withPrivKey, _, err = loadKeyPair(withElement.Type, (*withElement).Path)
+		withPrivKey, _, err = loadPrivKey((*withElement).Type, (*withElement).Path)
 		if err != nil {
 			return err
 		}
 
-		// Load the certificate
-		withCertificateBytes, err := ioutil.ReadFile((*withElement).Path + ".crt")
-		if err != nil {
-			return err
-		}
-
-		withCertificatePem, _ := pem.Decode(withCertificateBytes)
-
-		withCertificate, err = x509.ParseCertificate(withCertificatePem.Bytes)
+		withCertificatePem, withCertificateX509, err = loadCertificate((*withElement).Path)
 		if err != nil {
 			return err
 		}
@@ -149,23 +104,35 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 			certStruct = getCertForCA(serial, conf.CertificateDuration, conf.Organization, conf.Country, conf.Locality)
 		}
 
-		cert, err = x509.CreateCertificate(rand.Reader, certStruct, withCertificate, pubKey, withPrivKey)
+		cert, err = x509.CreateCertificate(rand.Reader, certStruct, withCertificateX509, pubKey, withPrivKey)
 		if err != nil {
 			return err
 		}
 
 		// If this is a client key, create the full chain too
 		if class == "client" {
-			fullchainCertFile, err := os.OpenFile((*keyMemory).Path + ".fullchain.crt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+			var fullchainCertPath = getCertPath((*keyInState).Path + ".fullchain")
+
+			fullchainCertFile, err := os.OpenFile(fullchainCertPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 			if err != nil {
 				return err
 			}
 			defer fullchainCertFile.Close()
 
 			pem.Encode(fullchainCertFile, &pem.Block{Type: "CERTIFICATE", Bytes: cert})
-			pem.Encode(fullchainCertFile, &pem.Block{Type: "CERTIFICATE", Bytes: withCertificatePem.Bytes})
+			pem.Encode(fullchainCertFile, withCertificatePem)
+
+			additionalMessage = "A full chain certificate file is also available at " + fullchainCertPath
 		}
 	}
+
+	var certPath string = getCertPath((*keyInState).Path)
+
+	certFile, err := os.OpenFile(certPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer certFile.Close()
 
 	pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: cert})
 
@@ -176,6 +143,11 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 	}
 
 	(*el).SerialNumber = (*serial).String()
+
+	fmt.Println(keyName + " key signed, certificate available in " + certPath)
+	if additionalMessage != "" {
+		fmt.Println(additionalMessage)
+	}
 
 	return nil
 }
@@ -212,48 +184,6 @@ func getCertForClient(serial *big.Int, duration int, commonName, organization, c
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:              x509.KeyUsageDigitalSignature,
 	}
-}
-
-
-func loadKeyPair(keyType, keyPath string) (interface{}, interface{}, error) {
-	var err error
-
-	var privKeyBytes []byte
-	var privKeyPem *pem.Block
-	var privKey, pubKey interface{}
-
-	if _, err = os.Stat(keyPath + ".key"); os.IsNotExist(err) {
-		return privKey, pubKey, errors.New("the private key " + keyPath + ".key does not exist")
-	}
-	if _, err = os.Stat(keyPath + ".pub"); os.IsNotExist(err) {
-		return privKey, pubKey, errors.New("the public key " + keyPath + ".pub does not exist")
-	}
-
-	// Read file, decode it as PEM and load it
-	privKeyBytes, err = ioutil.ReadFile(keyPath + ".key")
-	if err != nil {
-		return privKey, pubKey, err
-	}
-	privKeyPem, _ = pem.Decode(privKeyBytes)
-
-	switch keyType {
-	case "rsa":
-		privKey, err = x509.ParsePKCS1PrivateKey(privKeyPem.Bytes)
-		if err != nil {
-			return privKey, pubKey, err
-		}
-	case "ecdsa":
-		privKey, err = x509.ParseECPrivateKey(privKeyPem.Bytes)
-		if err != nil {
-			return privKey, pubKey, err
-		}
-	default:
-		return privKey, pubKey, errors.New("key type " + keyType + " is not implemented")
-	}
-
-	pubKey = getPubKey(privKey)
-
-	return privKey, pubKey, nil
 }
 
 

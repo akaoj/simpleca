@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -26,6 +27,8 @@ func generate(state *State, conf Conf, class string, keySize int, keyType, keyNa
 	var publicHeader string
 
 	var privKeyMarshalled, pubKeyMarshalled []byte
+
+	var encryptedPrivKey *pem.Block
 
 	switch keyType {
 	case "rsa":
@@ -80,21 +83,48 @@ func generate(state *State, conf Conf, class string, keySize int, keyType, keyNa
 	}
 
 	// Prepare public and private key files
-	privKeyFile, err := os.OpenFile(getPathPriv(class, keyName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	var privKeyPath string = getPrivKeyPath(getPath(class, keyName))
+	var pubKeyPath string = getPubKeyPath(getPath(class, keyName))
+
+	privKeyFile, err := os.OpenFile(privKeyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
 	defer privKeyFile.Close()
 
-	pubKeyFile, err := os.OpenFile(getPathPub(class, keyName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	pubKeyFile, err := os.OpenFile(pubKeyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
 	defer pubKeyFile.Close()
 
+	// Ask private key password
+	var password string
+	var passwordCheck string = "different"
+
+	for password != passwordCheck {
+		password, err = getpass("Please provide the password for the file " + privKeyPath + ": ")
+		if err != nil {
+			return err
+		}
+		passwordCheck, err = getpass("Please repeat it: ")
+		if err != nil {
+			return err
+		}
+
+		if password != passwordCheck {
+			fmt.Println("Passwords don't match")
+		}
+	}
+
+	// Encrypt private key
+	encryptedPrivKey, err = x509.EncryptPEMBlock(rand.Reader, privateHeader, privKeyMarshalled, []byte(password), x509.PEMCipherAES256)
+	if err != nil {
+		return err
+	}
 
 	// Write keys
-	pem.Encode(privKeyFile, &pem.Block{Type: privateHeader, Bytes: privKeyMarshalled})
+	pem.Encode(privKeyFile, encryptedPrivKey)
 	pem.Encode(pubKeyFile, &pem.Block{Type: publicHeader, Bytes: pubKeyMarshalled})
 
 	// Update State
@@ -106,6 +136,8 @@ func generate(state *State, conf Conf, class string, keySize int, keyType, keyNa
 		time.Now(),
 		"",
 	})
+
+	fmt.Println("Encrypted key generated in " + privKeyPath)
 
 	return nil
 }
