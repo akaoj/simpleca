@@ -13,6 +13,25 @@ import (
 )
 
 
+func getHelpSign() string {
+	return `Usage: simpleca sign [class] --name=<name> --with=<ca name>
+
+Available classes:
+	root           sign a root CA (most certainly without any option to have a self-signed root CA)
+	intermediate   sign an intermediate CA public key
+	client         sign a client public key
+
+--name string
+	(optional) The name of the key to sign (only needed if you gave a custom name to your key - which you probably
+	should have done).
+
+--with string
+	(optional) Sign the key with the given object (this should be the name of an intermediate CA for signing a client
+	key, or "root" if you want to sign an intermediate CA). Omit this option to self-sign the given key.
+`
+}
+
+
 func sign(state *State, conf Conf, class, keyName, with string) error {
 	var err error
 
@@ -184,18 +203,4 @@ func getCertForClient(serial *big.Int, duration int, commonName, organization, c
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:              x509.KeyUsageDigitalSignature,
 	}
-}
-
-
-func getHelpSign() string {
-	return `Usage: simpleca sign [class] --with=<ca name>
-
-Available classes:
-	intermediate   sign an intermediate CA public key
-	client         sign a client public key
-
---with string
-	(optional) Sign the key with the given object (this should be the name of an intermediate CA, or "root" if you want
-	to sign an intermediate CA)
-`
 }
