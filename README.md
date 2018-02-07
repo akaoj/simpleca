@@ -104,7 +104,6 @@ httpd.serve_forever()
 Then you can try it with `curl`:
 
 ```
-$ cat clients/web01.domain.com.crt intermediates/intermediate01.crt > clients/web01.domain.com.fullchain.crt
 $ python server.py &
 $ curl https://web01.domain.com:4443 -iv --cacert root/root.crt --resolve 'web01.domain.com:4443:127.0.0.1'
 ```
