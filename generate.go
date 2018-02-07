@@ -8,13 +8,39 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
 )
 
 
-func generate(state *State, conf Conf, class string, keySize int, keyType, keyName string) error {
+func getHelpGenerate() string {
+	return `Usage: simpleca generate [class] --type=<type> --size=<size> --name=<name> --clear-text
+
+Available classes:
+	root           generate a root CA key pair
+	intermediate   generate an intermediate CA key pair
+	client         generate a client key pair
+
+--type string
+	(optional) The key type. Possible values: "ecdsa", "rsa". Defaults to "ecdsa".
+
+--size string
+	(optional) The key size (depends on the key type). Possible values: "224", "256", "384", "521" for EC key types;
+	"1024", "2048", "4096" for RSA. Defaults to "256".
+
+--name string
+	(optional) The key name. This allows you to have multiple key of the same class (this is particularly useful to have
+	multiple client keys).
+
+--clear-text
+	(optional) If provided, do not encrypt generated private key. This is not recommended.
+`
+}
+
+
+func generate(state *State, conf Conf, class string, keySize int, keyType, keyName string, clearText bool) error {
 	if keyType == "" {
 		keyType = "ecdsa"
 	}
@@ -26,6 +52,8 @@ func generate(state *State, conf Conf, class string, keySize int, keyType, keyNa
 	var publicHeader string
 
 	var privKeyMarshalled, pubKeyMarshalled []byte
+
+	var encryptedPrivKey *pem.Block
 
 	switch keyType {
 	case "rsa":
@@ -80,21 +108,52 @@ func generate(state *State, conf Conf, class string, keySize int, keyType, keyNa
 	}
 
 	// Prepare public and private key files
-	privKeyFile, err := os.OpenFile(getPathPriv(class, keyName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	var privKeyPath string = getPrivKeyPath(getPath(class, keyName))
+	var pubKeyPath string = getPubKeyPath(getPath(class, keyName))
+
+	privKeyFile, err := os.OpenFile(privKeyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
 	defer privKeyFile.Close()
 
-	pubKeyFile, err := os.OpenFile(getPathPub(class, keyName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	pubKeyFile, err := os.OpenFile(pubKeyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
 	defer pubKeyFile.Close()
 
+	if !clearText {
+		// Ask private key password
+		var password string
+		var passwordCheck string = "different"
+
+		for password != passwordCheck {
+			password, err = getpass("Please provide the password for the file " + privKeyPath + ": ")
+			if err != nil {
+				return err
+			}
+			passwordCheck, err = getpass("Please repeat it: ")
+			if err != nil {
+				return err
+			}
+
+			if password != passwordCheck {
+				fmt.Println("Passwords don't match")
+			}
+		}
+
+		// Encrypt private key
+		encryptedPrivKey, err = x509.EncryptPEMBlock(rand.Reader, privateHeader, privKeyMarshalled, []byte(password), x509.PEMCipherAES256)
+		if err != nil {
+			return err
+		}
+	} else {
+		encryptedPrivKey = &pem.Block{Type: privateHeader, Bytes: privKeyMarshalled}
+	}
 
 	// Write keys
-	pem.Encode(privKeyFile, &pem.Block{Type: privateHeader, Bytes: privKeyMarshalled})
+	pem.Encode(privKeyFile, encryptedPrivKey)
 	pem.Encode(pubKeyFile, &pem.Block{Type: publicHeader, Bytes: pubKeyMarshalled})
 
 	// Update State
@@ -106,6 +165,8 @@ func generate(state *State, conf Conf, class string, keySize int, keyType, keyNa
 		time.Now(),
 		"",
 	})
+
+	fmt.Println("Encrypted key generated in " + privKeyPath)
 
 	return nil
 }
@@ -169,26 +230,4 @@ func generateKey(keyType string, keySize int) (privKeyMarshalled, pubKeyMarshall
 	}
 
 	return []byte{}, []byte{}, "", "", nil
-}
-
-
-func getHelpGenerate() string {
-	return `Usage: simpleca generate [class] --type=<type> --size=<size> --name=<name>
-
-Available classes:
-	root           generate a root CA key pair
-	intermediate   generate an intermediate CA key pair
-	client         generate a client key pair
-
---type string
-	(optional) The key type. Possible values: "ecdsa", "rsa". Defaults to "ecdsa".
-
---size string
-	(optional) The key size (depends on the key type). Possible values: "224", "256", "384", "521" for EC key types;
-	"1024", "2048", "4096" for RSA. Defaults to "256".
-
---name string
-	(optional) The key name. This allows you to have multiple key of a kind (this is particularly useful to have
-	multiple client keys).
-`
 }

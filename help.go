@@ -6,6 +6,7 @@ func getHelp() string {
 Available actions:
 	generate
 	info
+	rm
 	show
 	sign
 	version

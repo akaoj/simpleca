@@ -15,7 +15,7 @@ const VERSION string = "0.2"
 func main() {
 	output, err := run()
 	if err != nil {
-		fmt.Println("Error: " + err.Error())
+		fmt.Print("Error: " + err.Error())
 		os.Exit(2)
 	}
 
@@ -53,21 +53,38 @@ func run() (string, error) {
 		var keySize int
 		var keyType string
 		var keyName string
+		var clearText bool = false
 
 		commands := flag.NewFlagSet("generate", flag.ExitOnError)
 
 		commands.StringVar(&keyType, "type", "", "")
 		commands.IntVar(&keySize, "size", 0, "")
 		commands.StringVar(&keyName, "name", "", "")
+		commands.BoolVar(&clearText, "clear-text", false, "")
 
 		commands.Parse(os.Args[3:])
 
-		err := generate(&state, conf, class, keySize, keyType, keyName)
+		err := generate(&state, conf, class, keySize, keyType, keyName, clearText)
 		if err != nil {
 			return "", err
 		}
 	case "help":
-		return getHelp(), nil
+		var topic string = ""
+
+		if len(os.Args) == 3 {
+			topic = os.Args[2]
+		}
+
+		switch topic {
+		case "":
+			return getHelp(), nil
+		case "generate":
+			return getHelpGenerate(), nil
+		case "sign":
+			return getHelpSign(), nil
+		default:
+			return "", errors.New("the action \"" + topic + "\" has no help available\n\n" + getHelp())
+		}
 	case "info":
 		return "", errors.New("the \"info\" action is not yet implemented")
 	case "show":
@@ -92,6 +109,8 @@ func run() (string, error) {
 		if err != nil {
 			return "", err
 		}
+	case "rm":
+		return "", errors.New("the \"rm\" action is not yet implemented")
 	case "version":
 		return "simpleca v." + VERSION + "\n", nil
 	default:
