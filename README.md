@@ -92,10 +92,13 @@ httpd = BaseHTTPServer.HTTPServer(
 	('localhost', 4443),
 	SimpleHTTPServer.SimpleHTTPRequestHandler
 )
+
+keyname = 'web01.domain.com'
+
 httpd.socket = ssl.wrap_socket(
 	httpd.socket,
-	certfile='./clients/web01.domain.com.fullchain.crt',
-	keyfile='./clients/web01.domain.com.key',
+	certfile='./clients/{}.fullchain.crt'.format(keyname),
+	keyfile='./clients/{}.key'.format(keyname),
 	server_side=True,
 )
 httpd.serve_forever()

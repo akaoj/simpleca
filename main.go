@@ -9,7 +9,7 @@ import (
 )
 
 
-const VERSION string = "0.2"
+const VERSION string = "1.0.1"
 
 
 func main() {
@@ -112,7 +112,7 @@ func run() (string, error) {
 	case "rm":
 		return "", errors.New("the \"rm\" action is not yet implemented")
 	case "version":
-		return "simpleca v." + VERSION + "\n", nil
+		return "simpleca v" + VERSION + "\n", nil
 	default:
 		return "", errors.New("the action \"" + action + "\" does not exist\n\n" + getHelp())
 	}
