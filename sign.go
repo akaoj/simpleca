@@ -82,7 +82,7 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 		if class == "client" {
 			certStruct = getCertForClient(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
 		} else {
-			certStruct = getCertForCA(serial, conf.CertificateDuration, conf.Organization, conf.Country, conf.Locality)
+			certStruct = getCertForCA(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
 		}
 
 		cert, err = x509.CreateCertificate(rand.Reader, certStruct, certStruct, pubKey, privKey)
@@ -120,7 +120,7 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 		if class == "client" {
 			certStruct = getCertForClient(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
 		} else {
-			certStruct = getCertForCA(serial, conf.CertificateDuration, conf.Organization, conf.Country, conf.Locality)
+			certStruct = getCertForCA(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
 		}
 
 		cert, err = x509.CreateCertificate(rand.Reader, certStruct, withCertificateX509, pubKey, withPrivKey)
@@ -172,13 +172,14 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 }
 
 
-func getCertForCA(serial *big.Int, duration int, organization, country, locality string) *x509.Certificate {
+func getCertForCA(serial *big.Int, duration int, commonName, organization, country, locality string) *x509.Certificate {
 	return &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
 			Organization:  []string{organization},
 			Country:       []string{country},
 			Locality:      []string{locality},
+			CommonName:    commonName,
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(0, duration, 0),
