@@ -16,7 +16,9 @@ import (
 
 
 func getHelpGenerate() string {
-	return `Usage: simpleca generate [class] --type=<type> --size=<size> --name=<name> --clear-text
+	return `Usage: simpleca generate <class> [--type=<type>] [--size=<size>] [--name=<name>] [--clear-text]
+
+Generate a new key pair.
 
 Available classes:
 	root           generate a root CA key pair

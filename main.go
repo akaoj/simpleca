@@ -9,7 +9,18 @@ import (
 )
 
 
-const VERSION string = "1.0.1"
+const VERSION string = "1.1"
+
+
+func getHelp() string {
+	return `Usage: simpleca <action>
+
+Available actions:
+	generate
+	sign
+	version
+`
+}
 
 
 func main() {
@@ -21,6 +32,19 @@ func main() {
 
 	fmt.Print(output)
 }
+
+
+type stringArray []string
+
+func (i *stringArray) String() string {
+	return ""
+}
+
+func (s *stringArray) Set(value string) error {
+	*s = append(*s, value)
+	return nil
+}
+
 
 func run() (string, error) {
 	if len(os.Args) < 2 {
@@ -100,12 +124,15 @@ func run() (string, error) {
 
 		commands := flag.NewFlagSet("sign", flag.ExitOnError)
 
+		var altNames stringArray
+
 		commands.StringVar(&keyName, "name", "", "")
 		commands.StringVar(&with, "with", "", "")
+		commands.Var(&altNames, "altname", "")
 
 		commands.Parse(os.Args[3:])
 
-		err := sign(&state, conf, class, keyName, with)
+		err := sign(&state, conf, class, keyName, with, altNames)
 		if err != nil {
 			return "", err
 		}
