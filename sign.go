@@ -14,7 +14,9 @@ import (
 
 
 func getHelpSign() string {
-	return `Usage: simpleca sign [class] --name=<name> --with=<ca name>
+	return `Usage: simpleca sign <class> [--name=<name>] [--altname=<altname>] [--with=<ca name>]
+
+Sign a key (generate a certificate). Note that the name of the key will be the CommonName in the certificate.
 
 Available classes:
 	root           sign a root CA (most certainly without any option to have a self-signed root CA)
@@ -25,6 +27,9 @@ Available classes:
 	(optional) The name of the key to sign (only needed if you gave a custom name to your key - which you probably
 	should have done).
 
+--altname string
+	(optional) The additional DNS name this certificate will include. You can provide this parameter multiple times.
+
 --with string
 	(optional) Sign the key with the given object (this should be the name of an intermediate CA for signing a client
 	key, or "root" if you want to sign an intermediate CA). Omit this option to self-sign the given key.
@@ -32,7 +37,7 @@ Available classes:
 }
 
 
-func sign(state *State, conf Conf, class, keyName, with string) error {
+func sign(state *State, conf Conf, class, keyName, with string, altNames []string) error {
 	var err error
 
 	switch class {
@@ -80,7 +85,7 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 	if with == "" {
 		// Self-signed certificate
 		if class == "client" {
-			certStruct = getCertForClient(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
+			certStruct = getCertForClient(serial, conf.CertificateDuration, keyName, altNames, conf.Organization, conf.Country, conf.Locality)
 		} else {
 			certStruct = getCertForCA(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
 		}
@@ -118,7 +123,7 @@ func sign(state *State, conf Conf, class, keyName, with string) error {
 		}
 
 		if class == "client" {
-			certStruct = getCertForClient(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
+			certStruct = getCertForClient(serial, conf.CertificateDuration, keyName, altNames, conf.Organization, conf.Country, conf.Locality)
 		} else {
 			certStruct = getCertForCA(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
 		}
@@ -190,7 +195,7 @@ func getCertForCA(serial *big.Int, duration int, commonName, organization, count
 	}
 }
 
-func getCertForClient(serial *big.Int, duration int, commonName, organization, country, locality string) *x509.Certificate {
+func getCertForClient(serial *big.Int, duration int, commonName string, altNames []string, organization, country, locality string) *x509.Certificate {
 	return &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
@@ -199,9 +204,10 @@ func getCertForClient(serial *big.Int, duration int, commonName, organization, c
 			Locality:      []string{locality},
 			CommonName:    commonName,
 		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(0, duration, 0),
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		KeyUsage:              x509.KeyUsageDigitalSignature,
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().AddDate(0, duration, 0),
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:    x509.KeyUsageDigitalSignature,
+		DNSNames:    altNames,
 	}
 }
