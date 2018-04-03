@@ -20,7 +20,7 @@ reqs_tests: reqs_build
 build: reqs_build ${SIMPLECA}
 
 ${SIMPLECA}: ${GO_SOURCES}
-	go build
+	go build -o ${SIMPLECA}
 
 
 include Makefile.tests

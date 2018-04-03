@@ -9,7 +9,7 @@ import (
 )
 
 
-const VERSION string = "1.1"
+const VERSION string = "1.2"
 
 
 func getHelp() string {
@@ -17,6 +17,7 @@ func getHelp() string {
 
 Available actions:
 	generate
+	init
 	sign
 	version
 `
@@ -51,10 +52,46 @@ func run() (string, error) {
 		return "", errors.New("no action given\n\n" + getHelp())
 	}
 
+	var action string = os.Args[1]
+
 	var state State
 	var conf Conf
 	var err error
 
+	// Some actions might be fired without being inside a repo
+	switch action {
+	case "init":
+		return "Folder initialized, please edit the configuration.json file to fit your organization\n", init_()
+	case "help":
+		var topic string = ""
+
+		if len(os.Args) == 3 {
+			topic = os.Args[2]
+		}
+
+		switch topic {
+		case "":
+			return getHelp(), nil
+		case "generate":
+			return getHelpGenerate(), nil
+		case "init":
+			return getHelpInit(), nil
+		case "sign":
+			return getHelpSign(), nil
+		default:
+			return "", errors.New("the action \"" + topic + "\" has no help available\n\n" + getHelp())
+		}
+	case "version":
+		return "simpleca v" + VERSION + "\n", nil
+	}
+
+	if ! isRepo() {
+		return "", errors.New(`The current folder does not appear to be a valid simpleca repository.
+Please run "simpleca init" before running any other command.
+`)
+	}
+
+	// These will fail if we run them in an unitialized repo but here it's safe now
 	state, err = loadState()
 	if err != nil {
 		return "", err
@@ -64,8 +101,6 @@ func run() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	var action string = os.Args[1]
 
 	switch action {
 	case "generate":
@@ -92,25 +127,6 @@ func run() (string, error) {
 		if err != nil {
 			return "", err
 		}
-	case "help":
-		var topic string = ""
-
-		if len(os.Args) == 3 {
-			topic = os.Args[2]
-		}
-
-		switch topic {
-		case "":
-			return getHelp(), nil
-		case "generate":
-			return getHelpGenerate(), nil
-		case "sign":
-			return getHelpSign(), nil
-		default:
-			return "", errors.New("the action \"" + topic + "\" has no help available\n\n" + getHelp())
-		}
-	case "info":
-		return "", errors.New("the \"info\" action is not yet implemented")
 	case "show":
 		return "", errors.New("the \"list\" action is not yet implemented")
 	case "sign":
@@ -138,8 +154,6 @@ func run() (string, error) {
 		}
 	case "rm":
 		return "", errors.New("the \"rm\" action is not yet implemented")
-	case "version":
-		return "simpleca v" + VERSION + "\n", nil
 	default:
 		return "", errors.New("the action \"" + action + "\" does not exist\n\n" + getHelp())
 	}
