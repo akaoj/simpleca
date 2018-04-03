@@ -3,12 +3,34 @@
 This tool allows you to easily generate and manage your private Certificate Authority. You can generate and sign root CAs, intermediate CAs and client keys.
 
 
+# Commands
+
+All commands have a built-in help available with: `simpleca help <command>`.
+
+
+## init
+
+This command initializes the keys repository and create a sample configuration file. You have to run this once before starting playing with other commands.
+
+
+## generate
+
+Generate a private / public key pair.
+
+
+## sign
+
+Sign a public key with another public key (in general you will sign a client public key with a CA public key). If you sign a public key with itself, you create a self-signed public key (aka a self-signed certificate).
+
+
 # Usage
 
 Let's say you want to generate a custom root CA, an intermediate CA and some client key pairs.
 
 ```
 $ mkdir myca/ && cd myca/
+$ simpleca init
+Folder initialized, please edit the configuration.json file to fit your organization
 $ simpleca generate root
 Please provide the password for the file root/root.key:
 Please repeat it:
@@ -68,7 +90,7 @@ If you don't provide the `--name` flag, the default name will be used (`intermed
 
 # Configuration
 
-When run for the first time, if no configuration is present, `simpleca` will generate one. You can then change the values as you like:
+When creating a new keys repository, you must first run `simpleca init`. This will prepare the folder and create a `configuration.json` file. You then can change the value as you like:
 
 - CertificateDuration: specify the duration of signed certificates **in months**
 - Organization: the name of your organization

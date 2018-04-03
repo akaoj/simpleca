@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
-	"os"
 	"time"
 )
 
@@ -82,18 +81,6 @@ func (s *State) get(class, name string) (*Element, bool) {
 
 func loadState() (State, error) {
 	var s State
-
-	if _, err := os.Stat(statePath); os.IsNotExist(err) {
-		f, err := os.Create(statePath)
-		if err != nil {
-			return State{}, err
-		}
-
-		_, err = f.WriteString("{}\n")
-		if err != nil {
-			return State{}, err
-		}
-	}
 
 	stateFile, err := ioutil.ReadFile(statePath)
 	if err != nil {
