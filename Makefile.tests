@@ -4,9 +4,9 @@
 tests: reqs_tests _tests_pre build tests_init tests_generate tests_sign tests_rm _tests_post
 
 
-include Makefile.tests.d/_pre
-include Makefile.tests.d/init
-include Makefile.tests.d/generate
-include Makefile.tests.d/sign
-include Makefile.tests.d/rm
-include Makefile.tests.d/_post
+include Makefile.tests.d/Makefile._pre
+include Makefile.tests.d/Makefile.init
+include Makefile.tests.d/Makefile.generate
+include Makefile.tests.d/Makefile.sign
+include Makefile.tests.d/Makefile.rm
+include Makefile.tests.d/Makefile._post

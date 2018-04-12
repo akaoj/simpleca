@@ -4,7 +4,7 @@ _tests_pre:
 
 	# Check if the version declared in the main.go match the version we are currently working on
 	@( \
-		DECLARED_VERSION=`awk 'match($$0, /^const VERSION string = "(.*?)"$$/,a) {print a[1]}' main.go`; \
+		DECLARED_VERSION=${VERSION}; \
 		GIT_VERSION=`git rev-parse --abbrev-ref HEAD | cut -d '/' -f 2`; \
 		if test "$${DECLARED_VERSION}" != "$${GIT_VERSION}"; then \
 			echo -e >&2 "\e[1;31mmain.go is v$${DECLARED_VERSION} but you are working on the $${GIT_VERSION} version\e[0m"; \
