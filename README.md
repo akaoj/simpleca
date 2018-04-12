@@ -8,17 +8,17 @@ This tool allows you to easily generate and manage your private Certificate Auth
 All commands have a built-in help available with: `simpleca help <command>`.
 
 
-## init
+### init
 
 This command initializes the keys repository and create a sample configuration file. You have to run this once before starting playing with other commands.
 
 
-## generate
+### generate
 
 Generate a private / public key pair.
 
 
-## sign
+### sign
 
 Sign a public key with another public key (in general you will sign a client public key with a CA public key). If you sign a public key with itself, you create a self-signed public key (aka a self-signed certificate).
 

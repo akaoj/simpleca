@@ -32,8 +32,7 @@ Available classes:
 
 --with string
 	(optional) Sign the key with the given object (this should be the name of an intermediate CA for signing a client
-	key, or "root" if you want to sign an intermediate CA). Omit this option to self-sign the given key.
-`
+	key, or "root" if you want to sign an intermediate CA). Omit this option to self-sign the given key.`
 }
 
 
@@ -135,7 +134,7 @@ func sign(state *State, conf Conf, class, keyName, with string, altNames []strin
 
 		// If this is a client key, create the full chain too
 		if class == "client" {
-			var fullchainCertPath = getCertPath((*keyInState).Path + ".fullchain")
+			var fullchainCertPath = getFullCertPath((*keyInState).Path)
 
 			fullchainCertFile, err := os.OpenFile(fullchainCertPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 			if err != nil {

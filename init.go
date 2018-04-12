@@ -16,8 +16,7 @@ func getHelpInit() string {
 Init the current folder as a simpleca repository.
 It will create root/, intermediates/ and clients/ folders as well as an empty state file and a generic configuration file.
 
-You can run it multiple times, it won't overwrite or delete your content.
-`
+You can run it multiple times, it won't overwrite or delete your content.`
 }
 
 

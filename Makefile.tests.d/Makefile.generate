@@ -1,0 +1,14 @@
+tests_generate:
+	# Generate keys
+	cd ${TESTS_DIR} && ../${SIMPLECA} generate root --clear-text
+	cd ${TESTS_DIR} && ../${SIMPLECA} generate intermediate --name intermediate01 --clear-text
+	cd ${TESTS_DIR} && ../${SIMPLECA} generate client --name client_int --clear-text
+	cd ${TESTS_DIR} && ../${SIMPLECA} generate client --name client_root --clear-text
+	cd ${TESTS_DIR} && ../${SIMPLECA} generate client --name client_mult --clear-text
+
+	# Check if keys are as expected
+	openssl ec -noout -text -in ${TESTS_DIR}/root/root.key | grep --silent 'NIST CURVE: P-384'
+	openssl ec -noout -text -in ${TESTS_DIR}/intermediates/intermediate01.key | grep --silent 'NIST CURVE: P-384'
+	openssl ec -noout -text -in ${TESTS_DIR}/clients/client_int.key | grep --silent 'NIST CURVE: P-384'
+	openssl ec -noout -text -in ${TESTS_DIR}/clients/client_root.key | grep --silent 'NIST CURVE: P-384'
+	openssl ec -noout -text -in ${TESTS_DIR}/clients/client_mult.key | grep --silent 'NIST CURVE: P-384'

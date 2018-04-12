@@ -1,0 +1,26 @@
+tests_rm:
+	cd ${TESTS_DIR} && ../${SIMPLECA} rm client --name client_int
+
+	# All keys and certificates should have disappeared from disk
+	test ! -e ${TESTS_DIR}/clients/client_int.key
+	test ! -e ${TESTS_DIR}/clients/client_int.pub
+	test ! -e ${TESTS_DIR}/clients/client_int.crt
+	test ! -e ${TESTS_DIR}/clients/client_int.crt.fullchain
+
+	# The state should be cleaned
+	! grep '"client_int"' ${TESTS_DIR}/state.json
+
+	cd ${TESTS_DIR} && ../${SIMPLECA} rm client --name client_root
+	! grep '"client_root"' ${TESTS_DIR}/state.json
+
+	cd ${TESTS_DIR} && ../${SIMPLECA} rm client --name client_mult
+	! grep '"client_mult"' ${TESTS_DIR}/state.json
+
+	# We shouldn't be allowed to remove a root CA
+	cd ${TESTS_DIR} && ! ../${SIMPLECA} rm root
+
+	# We should be prompted before removing an intermediate CA
+	cd ${TESTS_DIR} && ! echo '' | ../${SIMPLECA} rm intermediate --name intermediate01
+
+	cd ${TESTS_DIR} && echo 'y' | ../${SIMPLECA} rm intermediate --name intermediate01
+	! grep '"intermediate01"' ${TESTS_DIR}/state.json

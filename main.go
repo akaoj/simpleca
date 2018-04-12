@@ -18,20 +18,20 @@ func getHelp() string {
 Available actions:
 	generate
 	init
+	rm
 	sign
-	version
-`
+	version`
 }
 
 
 func main() {
 	output, err := run()
 	if err != nil {
-		fmt.Print("Error: " + err.Error())
+		fmt.Println("Error: " + err.Error())
 		os.Exit(2)
 	}
 
-	fmt.Print(output)
+	fmt.Println(output)
 }
 
 
@@ -57,11 +57,12 @@ func run() (string, error) {
 	var state State
 	var conf Conf
 	var err error
+	var msg string
 
 	// Some actions might be fired without being inside a repo
 	switch action {
 	case "init":
-		return "Folder initialized, please edit the configuration.json file to fit your organization\n", init_()
+		return "Folder initialized, please edit the configuration.json file to fit your organization", init_()
 	case "help":
 		var topic string = ""
 
@@ -72,6 +73,8 @@ func run() (string, error) {
 		switch topic {
 		case "":
 			return getHelp(), nil
+		case "rm":
+			return getHelpRm(), nil
 		case "generate":
 			return getHelpGenerate(), nil
 		case "init":
@@ -82,7 +85,7 @@ func run() (string, error) {
 			return "", errors.New("the action \"" + topic + "\" has no help available\n\n" + getHelp())
 		}
 	case "version":
-		return "simpleca v" + VERSION + "\n", nil
+		return "simpleca v" + VERSION, nil
 	}
 
 	if ! isRepo() {
@@ -123,12 +126,49 @@ Please run "simpleca init" before running any other command.
 
 		commands.Parse(os.Args[3:])
 
-		err := generate(&state, conf, class, keySize, keyType, keyName, clearText)
+		err = generate(&state, conf, class, keySize, keyType, keyName, clearText)
 		if err != nil {
 			return "", err
 		}
-	case "show":
-		return "", errors.New("the \"list\" action is not yet implemented")
+	case "rm":
+		if len(os.Args[2:]) < 1 {
+			return "", errors.New("missing class\n\n" + getHelpRm())
+		}
+
+		var class string = os.Args[2]
+		var keyName string
+
+		commands := flag.NewFlagSet("rm", flag.ExitOnError)
+
+		commands.StringVar(&keyName, "name", "", "")
+
+		commands.Parse(os.Args[3:])
+
+		switch class {
+		case "root":
+			return "", errors.New(`can't delete a root key, this is too dangerous: all intermediate and client keys will become orphans (no way to revoke them or sign new intermediates certificates).
+If you want to get rid of this CA, remove the whole folder (or better: create a new one next to this one in case you need the old CA someday).`)
+		case "intermediate":
+			fmt.Print("Warning! You are about to delete an intermediate key and certificate, are you sure you want to do that (y/N)? ")
+
+			var answer string = "n";
+			fmt.Scanln(&answer)
+
+			if answer != "y" && answer != "yes" && answer != "Y" {
+				return "", errors.New("Aborting")
+			}
+		case "client":
+			// Do nothing
+		default:
+			return "", errors.New("can't delete a " + class)
+		}
+
+		err = rm(&state, conf, class, keyName)
+		if err != nil {
+			return "", err
+		}
+
+		msg = class + " keys and certificates deleted"
 	case "sign":
 		if len(os.Args[2:]) < 1 {
 			return "", errors.New("missing class\n\n" + getHelpSign())
@@ -152,8 +192,6 @@ Please run "simpleca init" before running any other command.
 		if err != nil {
 			return "", err
 		}
-	case "rm":
-		return "", errors.New("the \"rm\" action is not yet implemented")
 	default:
 		return "", errors.New("the action \"" + action + "\" does not exist\n\n" + getHelp())
 	}
@@ -165,5 +203,5 @@ Please run "simpleca init" before running any other command.
 		return "", err
 	}
 
-	return "", nil
+	return msg, nil
 }
