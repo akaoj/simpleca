@@ -1,0 +1,15 @@
+tests_sign:
+	# Sign keys
+	cd ${TESTS_DIR} && ../${SIMPLECA} sign root
+	cd ${TESTS_DIR} && ../${SIMPLECA} sign intermediate --name intermediate01 --with root
+	cd ${TESTS_DIR} && ../${SIMPLECA} sign client --name client_int --with intermediate01
+	cd ${TESTS_DIR} && ../${SIMPLECA} sign client --name client_root --with root
+	cd ${TESTS_DIR} && ../${SIMPLECA} sign client --name client_mult --altname www.domain.com --altname blog.stuff.com --altname api.service.net --with intermediate01
+
+	# Check if keys are correctly signed
+	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/root/root.crt
+	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/intermediates/intermediate01.crt
+	cat ${TESTS_DIR}/intermediates/intermediate01.crt ${TESTS_DIR}/clients/client_int.crt > ${TESTS_DIR}/clients/client_int.fullchain_reversed.crt
+	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/clients/client_int.fullchain_reversed.crt
+	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/clients/client_root.crt
+	openssl x509 -noout -text -in ${TESTS_DIR}/clients/client_mult.crt | awk '/DNS:www\.domain\.com/ && /DNS:blog\.stuff\.com/ && /DNS:api\.service\.net/ {rc = 1} END {exit !rc}'

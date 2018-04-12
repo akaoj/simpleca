@@ -1,66 +1,12 @@
-.PHONY: tests  tests_pre  tests_post
+.PHONY: tests  _tests_pre  tests_init  tests_generate  tests_sign  tests_rm  _tests_post
 
 
-tests: reqs_tests tests_pre build tests_post
+tests: reqs_tests _tests_pre build tests_init tests_generate tests_sign tests_rm _tests_post
 
 
-tests_pre:
-	# Check if the version declared in the main.go match the version we are currently working on
-	@( \
-		DECLARED_VERSION=`awk 'match($$0, /^const VERSION string = "(.*?)"$$/,a) {print a[1]}' main.go`; \
-		GIT_VERSION=`git rev-parse --abbrev-ref HEAD | cut -d '/' -f 2`; \
-		if test "$${DECLARED_VERSION}" != "$${GIT_VERSION}"; then \
-			echo >&2 "main.go is v$${DECLARED_VERSION} but you are working on the $${GIT_VERSION} version"; \
-			exit 1; \
-		fi; \
-	)
-
-	@echo -e "\e[1;32mPRE-BUILD TESTS OK\e[0m"
-
-
-# Check with OpenSSL if we created valid keys and signatures
-tests_post:
-	# Prepare
-	$(RM) -r ${TESTS_DIR}
-	mkdir -p ${TESTS_DIR}
-
-	# Init repo
-	cd ${TESTS_DIR} && ../${SIMPLECA} init
-	# Calling it twice should not fail
-	cd ${TESTS_DIR} && ../${SIMPLECA} init
-
-	# Generate keys
-	cd ${TESTS_DIR} && ../${SIMPLECA} generate root --clear-text
-	cd ${TESTS_DIR} && ../${SIMPLECA} generate intermediate --name intermediate01 --clear-text
-	cd ${TESTS_DIR} && ../${SIMPLECA} generate client --name client_int --clear-text
-	cd ${TESTS_DIR} && ../${SIMPLECA} generate client --name client_root --clear-text
-	cd ${TESTS_DIR} && ../${SIMPLECA} generate client --name client_mult --clear-text
-
-	# Check if keys are as expected
-	openssl ec -noout -text -in ${TESTS_DIR}/root/root.key | grep --silent 'NIST CURVE: P-384'
-	openssl ec -noout -text -in ${TESTS_DIR}/intermediates/intermediate01.key | grep --silent 'NIST CURVE: P-384'
-	openssl ec -noout -text -in ${TESTS_DIR}/clients/client_int.key | grep --silent 'NIST CURVE: P-384'
-	openssl ec -noout -text -in ${TESTS_DIR}/clients/client_root.key | grep --silent 'NIST CURVE: P-384'
-	openssl ec -noout -text -in ${TESTS_DIR}/clients/client_mult.key | grep --silent 'NIST CURVE: P-384'
-
-	# Sign keys
-	cd ${TESTS_DIR} && ../${SIMPLECA} sign root
-	cd ${TESTS_DIR} && ../${SIMPLECA} sign intermediate --name intermediate01 --with root
-	cd ${TESTS_DIR} && ../${SIMPLECA} sign client --name client_int --with intermediate01
-	cd ${TESTS_DIR} && ../${SIMPLECA} sign client --name client_root --with root
-	cd ${TESTS_DIR} && ../${SIMPLECA} sign client --name client_mult --altname www.domain.com --altname blog.stuff.com --altname api.service.net --with intermediate01
-
-	# Check if keys are correctly signed
-	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/root/root.crt
-	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/intermediates/intermediate01.crt
-	cat ${TESTS_DIR}/intermediates/intermediate01.crt ${TESTS_DIR}/clients/client_int.crt > ${TESTS_DIR}/clients/client_int.fullchain_reversed.crt
-	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/clients/client_int.fullchain_reversed.crt
-	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/clients/client_root.crt
-	openssl x509 -noout -text -in ${TESTS_DIR}/clients/client_mult.crt | awk '/DNS:www\.domain\.com/ && /DNS:blog\.stuff\.com/ && /DNS:api\.service\.net/ {rc = 1} END {exit !rc}'
-
-	# Initializing a living repo should not fail
-	cd ${TESTS_DIR} && ../${SIMPLECA} init
-
-	# Clean up
-	$(RM) -r ${TESTS_DIR}
-	@echo -e "\e[1;32mPOST-BUILD TESTS OK\e[0m"
+include Makefile.tests.d/_pre
+include Makefile.tests.d/init
+include Makefile.tests.d/generate
+include Makefile.tests.d/sign
+include Makefile.tests.d/rm
+include Makefile.tests.d/_post
