@@ -37,8 +37,7 @@ Available classes:
 	multiple client keys).
 
 --clear-text
-	(optional) If provided, do not encrypt generated private key. This is not recommended.
-`
+	(optional) If provided, do not encrypt generated private key. This is not recommended.`
 }
 
 
@@ -85,15 +84,15 @@ func generate(state *State, conf Conf, class string, keySize int, keyType, keyNa
 
 	switch class {
 	case "root":
-		path = rootPath
+		path = RootPath
 		keyName = "root"
 	case "intermediate":
-		path = intermediatesPath
+		path = IntermediatesPath
 		if keyName == "" {
 			keyName = "intermediate"
 		}
 	case "client":
-		path = clientsPath
+		path = ClientsPath
 		if keyName == "" {
 			keyName = "client"
 		}

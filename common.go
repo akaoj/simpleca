@@ -14,9 +14,9 @@ import (
 	"syscall"
 )
 
-const rootPath = "root"
-const intermediatesPath = "intermediates"
-const clientsPath = "clients"
+const RootPath = "root"
+const IntermediatesPath = "intermediates"
+const ClientsPath = "clients"
 
 
 func getPubKey(priv interface{}) interface{} {
@@ -56,6 +56,9 @@ func getPubKeyPath(path string) string {
 }
 func getCertPath(path string) string {
 	return path + ".crt"
+}
+func getFullCertPath(path string) string {
+	return path + ".crt.fullchain"
 }
 
 
