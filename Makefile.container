@@ -1,0 +1,16 @@
+.PHONY: compile release
+
+SHELL = /bin/bash
+
+HOME=/tmp
+export HOME
+
+
+compile:
+	cd src && go build -o ../${BINARY}
+
+release:
+	tar --create --gzip --file ${BINARY}.tar.gz ${BINARY}
+
+
+include Makefile.tests

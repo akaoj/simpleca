@@ -7,23 +7,20 @@ This tool allows you to easily generate and manage your private Certificate Auth
 
 All commands have a built-in help available with: `simpleca help <command>`.
 
-
 ### init
 
 This command initializes the keys repository and create a sample configuration file. You have to run this once before starting playing with other commands.
 
-
 ### generate
 
 Generate a private / public key pair.
-
 
 ### sign
 
 Sign a public key with another public key (in general you will sign a client public key with a CA public key). If you sign a public key with itself, you create a self-signed public key (aka a self-signed certificate).
 
 
-# Usage
+# You are a user
 
 Let's say you want to generate a custom root CA, an intermediate CA and some client key pairs.
 
@@ -88,7 +85,7 @@ client.crt  client.fullchain.crt  client.key  client.pub  web01.domain.com.crt  
 If you don't provide the `--name` flag, the default name will be used (`intermediate` for intermediate and `client` for client). Note that you can only have one root key pair and certificate.
 
 
-# Configuration
+## Configuration
 
 When creating a new keys repository, you must first run `simpleca init`. This will prepare the folder and create a `configuration.json` file. You then can change the value as you like:
 
@@ -100,7 +97,7 @@ When creating a new keys repository, you must first run `simpleca init`. This wi
 Note that these informations are **only** used for the certificates. They are **not** and **never will be** sent to some strange remote server and are **not** used for statistics purposes.
 
 
-# Test it
+## Test it
 
 Spawn a simple HTTPS server:
 
@@ -132,3 +129,10 @@ Then you can try it with `curl`:
 $ python server.py &
 $ curl https://web01.domain.com:4443 -iv --cacert root/root.crt --resolve 'web01.domain.com:4443:127.0.0.1'
 ```
+
+
+# You are a developer
+
+If you want to modify or build simpleca by yourself, you may want to have Docker: all compilation and testing can be
+done inside a container. Simply run `make compile` or `make tests` and everything will be done without having to
+install `go` or `openssl`. Run `make help` to see all available commands.

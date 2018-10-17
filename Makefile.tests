@@ -1,12 +1,108 @@
 .PHONY: tests  _tests_pre  tests_init  tests_generate  tests_sign  tests_rm  _tests_post
 
 
-tests: reqs_tests _tests_pre build tests_init tests_generate tests_sign tests_rm _tests_post
+BINARY_PATH = ../${BINARY}
+TESTS_DIR = tests
 
 
-include Makefile.tests.d/Makefile._pre
-include Makefile.tests.d/Makefile.init
-include Makefile.tests.d/Makefile.generate
-include Makefile.tests.d/Makefile.sign
-include Makefile.tests.d/Makefile.rm
-include Makefile.tests.d/Makefile._post
+tests: _tests_pre tests_init tests_generate tests_sign tests_rm _tests_post
+
+
+_tests_pre:
+	# Clean old test folder
+	$(RM) -r ${TESTS_DIR}
+
+	# Check if the version declared in the main.go match the version we are currently working on
+	@( \
+		DECLARED_VERSION=${VERSION}; \
+		GIT_VERSION=`git rev-parse --abbrev-ref HEAD | cut -d '/' -f 2`; \
+		if test "$${DECLARED_VERSION}" != "$${GIT_VERSION}"; then \
+			echo -e >&2 "\e[1;31mmain.go is v$${DECLARED_VERSION} but you are working on the $${GIT_VERSION} version\e[0m"; \
+			echo "${IGNORE_VERSION}"; \
+			if ! test "${IGNORE_VERSION}" != "false"; then \
+				exit 1; \
+			fi; \
+		fi; \
+	)
+
+	@echo -e "\e[1;32mPRE-BUILD TESTS OK\e[0m"
+
+	# Prepare
+	mkdir -p ${TESTS_DIR}
+
+
+tests_init:
+	# Init repo
+	cd ${TESTS_DIR} && ${BINARY_PATH} init
+	# Calling it twice should not fail
+	cd ${TESTS_DIR} && ${BINARY_PATH} init
+
+
+tests_generate:
+	# Generate keys
+	cd ${TESTS_DIR} && ${BINARY_PATH} generate root --clear-text
+	cd ${TESTS_DIR} && ${BINARY_PATH} generate intermediate --name intermediate01 --clear-text
+	cd ${TESTS_DIR} && ${BINARY_PATH} generate client --name client_int --clear-text
+	cd ${TESTS_DIR} && ${BINARY_PATH} generate client --name client_root --clear-text
+	cd ${TESTS_DIR} && ${BINARY_PATH} generate client --name client_mult --clear-text
+
+	# Check if keys are as expected
+	openssl ec -noout -text -in ${TESTS_DIR}/root/root.key | grep --silent 'NIST CURVE: P-384'
+	openssl ec -noout -text -in ${TESTS_DIR}/intermediates/intermediate01.key | grep --silent 'NIST CURVE: P-384'
+	openssl ec -noout -text -in ${TESTS_DIR}/clients/client_int.key | grep --silent 'NIST CURVE: P-384'
+	openssl ec -noout -text -in ${TESTS_DIR}/clients/client_root.key | grep --silent 'NIST CURVE: P-384'
+	openssl ec -noout -text -in ${TESTS_DIR}/clients/client_mult.key | grep --silent 'NIST CURVE: P-384'
+
+
+tests_sign:
+	# Sign keys
+	cd ${TESTS_DIR} && ${BINARY_PATH} sign root
+	cd ${TESTS_DIR} && ${BINARY_PATH} sign intermediate --name intermediate01 --with root
+	cd ${TESTS_DIR} && ${BINARY_PATH} sign client --name client_int --with intermediate01
+	cd ${TESTS_DIR} && ${BINARY_PATH} sign client --name client_root --with root
+	cd ${TESTS_DIR} && ${BINARY_PATH} sign client --name client_mult --altname www.domain.com --altname blog.stuff.com --altname api.service.net --with intermediate01
+
+	# Check if keys are correctly signed
+	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/root/root.crt
+	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/intermediates/intermediate01.crt
+	cat ${TESTS_DIR}/intermediates/intermediate01.crt ${TESTS_DIR}/clients/client_int.crt > ${TESTS_DIR}/clients/client_int.fullchain_reversed.crt
+	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/clients/client_int.fullchain_reversed.crt
+	openssl verify -CAfile ${TESTS_DIR}/root/root.crt ${TESTS_DIR}/clients/client_root.crt
+	openssl x509 -noout -text -in ${TESTS_DIR}/clients/client_mult.crt | awk '/DNS:www\.domain\.com/ && /DNS:blog\.stuff\.com/ && /DNS:api\.service\.net/ {rc = 1} END {exit !rc}'
+
+
+tests_rm:
+	cd ${TESTS_DIR} && ${BINARY_PATH} rm client --name client_int
+
+	# All keys and certificates should have disappeared from disk
+	test ! -e ${TESTS_DIR}/clients/client_int.key
+	test ! -e ${TESTS_DIR}/clients/client_int.pub
+	test ! -e ${TESTS_DIR}/clients/client_int.crt
+	test ! -e ${TESTS_DIR}/clients/client_int.crt.fullchain
+
+	# The state should be cleaned
+	! grep '"client_int"' ${TESTS_DIR}/state.json
+
+	cd ${TESTS_DIR} && ${BINARY_PATH} rm client --name client_root
+	! grep '"client_root"' ${TESTS_DIR}/state.json
+
+	cd ${TESTS_DIR} && ${BINARY_PATH} rm client --name client_mult
+	! grep '"client_mult"' ${TESTS_DIR}/state.json
+
+	# We shouldn't be allowed to remove a root CA
+	cd ${TESTS_DIR} && ! ${BINARY_PATH} rm root
+
+	# We should be prompted before removing an intermediate CA
+	cd ${TESTS_DIR} && ! echo '' | ${BINARY_PATH} rm intermediate --name intermediate01
+
+	cd ${TESTS_DIR} && echo 'y' | ${BINARY_PATH} rm intermediate --name intermediate01
+	! grep '"intermediate01"' ${TESTS_DIR}/state.json
+
+
+_tests_post:
+	# Initializing a living repo should not fail
+	cd ${TESTS_DIR} && ${BINARY_PATH} init
+
+	# Clean up
+	$(RM) -r ${TESTS_DIR}
+	@echo -e "\e[1;32mPOST-BUILD TESTS OK\e[0m"
