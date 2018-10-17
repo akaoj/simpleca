@@ -50,7 +50,7 @@ _dev_image: _reqs
 	sudo docker build . --file dev.Dockerfile -t ${CONTAINER_IMAGE_NAME} --build-arg='USER_ID=${CURRENT_USER_ID}' --build-arg='USER_NAME=${CURRENT_USER_NAME}'
 
 
-${BINARY}: ${GO_SOURCES}
+${BINARY}: ${GO_SOURCES} dev.Dockerfile
 	$(call container_make,compile,BINARY=${BINARY})
 
 
