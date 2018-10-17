@@ -36,7 +36,7 @@ Available classes:
 }
 
 
-func sign(state *State, conf Conf, class, keyName, with string, altNames []string) error {
+func sign(state *State, conf Conf, class, with, keyName string, altNames []string) error {
 	var err error
 
 	switch class {
@@ -86,7 +86,7 @@ func sign(state *State, conf Conf, class, keyName, with string, altNames []strin
 		if class == "client" {
 			certStruct = getCertForClient(serial, conf.CertificateDuration, keyName, altNames, conf.Organization, conf.Country, conf.Locality)
 		} else {
-			certStruct = getCertForCA(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
+			certStruct = getCertForCA(serial, conf.CertificateDuration, keyName, altNames, conf.Organization, conf.Country, conf.Locality)
 		}
 
 		cert, err = x509.CreateCertificate(rand.Reader, certStruct, certStruct, pubKey, privKey)
@@ -124,7 +124,7 @@ func sign(state *State, conf Conf, class, keyName, with string, altNames []strin
 		if class == "client" {
 			certStruct = getCertForClient(serial, conf.CertificateDuration, keyName, altNames, conf.Organization, conf.Country, conf.Locality)
 		} else {
-			certStruct = getCertForCA(serial, conf.CertificateDuration, keyName, conf.Organization, conf.Country, conf.Locality)
+			certStruct = getCertForCA(serial, conf.CertificateDuration, keyName, altNames, conf.Organization, conf.Country, conf.Locality)
 		}
 
 		cert, err = x509.CreateCertificate(rand.Reader, certStruct, withCertificateX509, pubKey, withPrivKey)
@@ -176,7 +176,10 @@ func sign(state *State, conf Conf, class, keyName, with string, altNames []strin
 }
 
 
-func getCertForCA(serial *big.Int, duration int, commonName, organization, country, locality string) *x509.Certificate {
+func getCertForCA(serial *big.Int, duration int, commonName string, subjectAltNames []string, organization, country, locality string) *x509.Certificate {
+	// The DNSNames field should contain all names (the CommonName should not be used)
+	var dnsNames = append([]string{commonName}, subjectAltNames...)
+
 	return &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
@@ -191,10 +194,14 @@ func getCertForCA(serial *big.Int, duration int, commonName, organization, count
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
+		DNSNames:              dnsNames,
 	}
 }
 
-func getCertForClient(serial *big.Int, duration int, commonName string, altNames []string, organization, country, locality string) *x509.Certificate {
+func getCertForClient(serial *big.Int, duration int, commonName string, subjectAltNames []string, organization, country, locality string) *x509.Certificate {
+	// The DNSNames field should contain all names (the CommonName should not be used)
+	var dnsNames = append([]string{commonName}, subjectAltNames...)
+
 	return &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
@@ -207,6 +214,6 @@ func getCertForClient(serial *big.Int, duration int, commonName string, altNames
 		NotAfter:    time.Now().AddDate(0, duration, 0),
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature,
-		DNSNames:    altNames,
+		DNSNames:    dnsNames,
 	}
 }

@@ -1,3 +1,16 @@
+# 1.2.1 (2018-10-17)
+
+### Buildchain
+
+- Use a Docker-make based workflow, so developers don't have to install anything on their machine to compile or test
+  the code. Now you can `git pull` and `make compile` without having installed `go` and everything will work.
+
+### Bug fixes
+
+- Use `SubjectAltName` in addition to `CommonName` (see [RFC 2818](https://tools.ietf.org/html/rfc2818#page-5))
+
+
+
 # 1.2 (2018-04-12)
 
 ### Improvements

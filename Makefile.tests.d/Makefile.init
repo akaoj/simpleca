@@ -1,5 +1,0 @@
-tests_init:
-	# Init repo
-	cd ${TESTS_DIR} && ../${SIMPLECA} init
-	# Calling it twice should not fail
-	cd ${TESTS_DIR} && ../${SIMPLECA} init

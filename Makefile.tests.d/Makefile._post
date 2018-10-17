@@ -1,7 +1,0 @@
-_tests_post:
-	# Initializing a living repo should not fail
-	cd ${TESTS_DIR} && ../${SIMPLECA} init
-
-	# Clean up
-	$(RM) -r ${TESTS_DIR}
-	@echo -e "\e[1;32mPOST-BUILD TESTS OK\e[0m"

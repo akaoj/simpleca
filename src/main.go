@@ -9,7 +9,7 @@ import (
 )
 
 
-const VERSION string = "1.2"
+const VERSION string = "1.2.1"
 
 
 func getHelp() string {
@@ -188,7 +188,7 @@ If you want to get rid of this CA, remove the whole folder (or better: create a 
 
 		commands.Parse(os.Args[3:])
 
-		err := sign(&state, conf, class, keyName, with, altNames)
+		err := sign(&state, conf, class, with, keyName, altNames)
 		if err != nil {
 			return "", err
 		}
