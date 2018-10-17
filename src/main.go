@@ -9,7 +9,7 @@ import (
 )
 
 
-const VERSION string = "1.2.1"
+const VERSION string = "1.2.2"
 
 
 func getHelp() string {

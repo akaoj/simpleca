@@ -7,7 +7,7 @@ export HOME
 
 
 compile:
-	cd src && go build -o ../${BINARY}
+	cd src && CGO_ENABLED=0 go build -o ../${BINARY}
 
 release:
 	tar --create --gzip --file ${BINARY}.tar.gz ${BINARY}
